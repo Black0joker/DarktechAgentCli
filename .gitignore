@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+/chat_cache
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Certificates and secrets
+cert.pem
+*.pem
+*.key
+*.crt
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+test.py
+
+# Specific log files
+logs/agent.log
+
+# Downloaded dependencies
+jsonrepair.js
+TBM9hLzE.js
+
+# Explicit ignores (requested)
+config/tokenfile.json
+agent.log
+cert.pem

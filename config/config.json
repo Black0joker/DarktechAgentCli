@@ -1,0 +1,4 @@
+{
+  "DEFAULT_PROXY_URL": "https://darktechapi.runasp.net",
+  "CAPTCHA_SOLVER_API_BASE": "https://capsolver.runasp.net"
+}
