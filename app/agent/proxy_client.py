@@ -11,6 +11,14 @@ from app.agent.configData import (
 from app.agent.logger import Logger
 
 
+class ServiceUnavailableError(Exception):
+    """Raised when the proxy returns HTTP 503 (maintenance / temporarily unavailable)."""
+
+    def __init__(self, detail: str = "The service is temporarily unavailable for maintenance. Please try again later."):
+        self.detail = detail
+        super().__init__(detail)
+
+
 # MIME types for image uploads (same mapping as DarktechClient.upload_image)
 _IMAGE_CONTENT_TYPES = {
     '.jpg': 'image/jpeg',
@@ -64,8 +72,20 @@ class ProxyClient:
         kwargs.setdefault('timeout', timeout)
         try:
             response = self.session.request(method, url, **kwargs)
+            # Detect 503 Service Unavailable (maintenance) from any endpoint.
+            # The proxy returns: {"detail": "The service is temporarily unavailable..."}
+            if response.status_code == 503:
+                try:
+                    body = response.json()
+                    detail = body.get('detail', response.text) if isinstance(body, dict) else response.text
+                except Exception:
+                    detail = response.text or "The service is temporarily unavailable for maintenance. Please try again later."
+                Logger.error(f"Proxy API 503 Service Unavailable: {method} {path}: {detail}")
+                raise ServiceUnavailableError(detail)
             response.raise_for_status()
             return response
+        except ServiceUnavailableError:
+            raise
         except requests.exceptions.RequestException as e:
             body = ''
             err_response = getattr(e, 'response', None)
@@ -276,13 +296,28 @@ class ProxyClient:
         }
 
         # Connect timeout only: the SSE stream stays open for the whole generation.
-        stream = self.session.post(
-            f"{self.base_url}/api/v1/chat/completions",
-            json=json_data,
-            headers=self._headers(),
-            stream=True,
-            timeout=(15, None),
-        )
+        try:
+            stream = self.session.post(
+                f"{self.base_url}/api/v1/chat/completions",
+                json=json_data,
+                headers=self._headers(),
+                stream=True,
+                timeout=(15, None),
+            )
+        except requests.exceptions.RequestException as conn_err:
+            Logger.error(f"send_prompt(proxy) connection error: {conn_err}")
+            raise
+
+        # Detect 503 Service Unavailable (maintenance) before inspecting Content-Type.
+        if stream.status_code == 503:
+            try:
+                body = stream.json()
+                detail = body.get('detail', stream.text) if isinstance(body, dict) else stream.text
+            except Exception:
+                detail = stream.text or "The service is temporarily unavailable for maintenance. Please try again later."
+            Logger.error(f"send_prompt(proxy) 503 Service Unavailable: {detail}")
+            stream.close()
+            raise ServiceUnavailableError(detail)
 
         content_type = stream.headers.get("Content-Type", "")
         if "text/event-stream" not in content_type:

@@ -12,6 +12,7 @@ from app.agent.module import execute_tool, create_client, EXPECTED_TOOLS
 from app.agent.logger import Logger
 from app.agent.parser import parse_proxy_stream
 from app.agent.chat_cache import ChatCache
+from app.agent.proxy_client import ServiceUnavailableError
 
 class AgentWrapper:
     """
@@ -188,6 +189,9 @@ class AgentWrapper:
             self.client.StopSendingPrompt(self.session_id, self.previous_message_id)
             self.client.StopSendingPrompt(self.session_id, self.parent_message_id)
             Logger.info("Agent task cancelled")
+        except ServiceUnavailableError as svc_err:
+            Logger.error(f"Service unavailable (503 maintenance): {svc_err.detail}")
+            self._call_callback('on_error', str(svc_err))
         except Exception as e:
             Logger.error(f"Agent task error: {e}")
             Logger.error(traceback.format_exc())
@@ -327,6 +331,10 @@ class AgentWrapper:
                         self._title_fetched = False
 
                 # self._call_callback('on_status', 'Sent ......')
+            except ServiceUnavailableError as svc_err:
+                Logger.error(f"Service unavailable (503 maintenance): {svc_err.detail}")
+                self._call_callback('on_error', str(svc_err))
+                return
             except Exception as e:
                 Logger.error(f"Failed to send prompt: {e}")
                 Logger.error(f"Prompt: {prompt_to_send}")
